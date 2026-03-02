@@ -19,6 +19,24 @@ Production-grade starter monorepo for a collaborative platform spanning web, API
 
 See `docs/architecture.md` for the Mermaid diagram and boundaries.
 
+## Repository Layout
+
+```text
+.
+├── apps/
+│   ├── api/
+│   │   └── app/
+│   │       ├── api/
+│   │       ├── core/
+│   │       └── models/
+│   └── web/
+├── docs/
+├── infra/
+├── ml/
+├── docker-compose.yml
+└── Makefile
+```
+
 ## Local Development
 
 ### 1) Configure environment
@@ -107,3 +125,18 @@ curl -X POST "http://localhost:8000/api/v1/events" \
 - [ ] Observability stack (OpenTelemetry + tracing)
 - [ ] CI pipeline with lint/test/build gates
 - [ ] ML pipeline orchestration and feature store integration
+
+## Quality Gates
+
+Install pre-commit hooks:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This repo enforces:
+
+- typed API payloads and responses,
+- structured JSON logging,
+- formatter/linter automation for Python + JS.

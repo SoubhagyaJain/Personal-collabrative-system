@@ -13,7 +13,9 @@ configure_logging(settings.app_log_level)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.app_name)
+
 app.include_router(api_router, prefix="/api/v1")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
