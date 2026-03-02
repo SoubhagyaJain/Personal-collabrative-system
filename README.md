@@ -77,6 +77,28 @@ curl -X POST "http://localhost:8000/api/v1/events" \
   }'
 ```
 
+
+## Web + API end-to-end flow (PR-003)
+
+After stack boot, seed catalog data:
+
+```bash
+make migrate
+make seed
+```
+
+Then open `http://localhost:3000`.
+
+- Home page fetches `GET /api/v1/home?user_id=...`.
+- Clicking a title opens `/title/{id}` and fetches `GET /api/v1/item/{id}`.
+- Web logs events via `POST /api/v1/events` for impressions, clicks, and plays.
+
+### Demo identity strategy
+
+- `user_id`: stored in browser `localStorage` as `recsysflix_user_id` (created with `crypto.randomUUID()` if missing).
+- `session_id`: stored per-tab in `sessionStorage` as `recsysflix_session_id`.
+- Impression dedupe key: `(session_id, row_id, item_id)` stored in `sessionStorage` as `recsysflix_impressions`.
+
 ## Deployment
 
 ### Deploy `apps/web` to Vercel
