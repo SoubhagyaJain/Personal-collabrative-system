@@ -1,6 +1,6 @@
-COMPOSE ?= docker compose
+COMPOSE ?= docker compose -f infra/docker-compose.yml
 
-.PHONY: up down build lint test format
+.PHONY: up down build lint test format migrate seed
 
 up:
 	$(COMPOSE) up --build
@@ -22,3 +22,9 @@ test:
 format:
 	$(COMPOSE) run --rm api ruff format /app
 	$(COMPOSE) run --rm web npm run format
+
+migrate:
+	$(COMPOSE) run --rm api alembic upgrade head
+
+seed:
+	$(COMPOSE) run --rm api python -m app.scripts.seed_db

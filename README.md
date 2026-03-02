@@ -5,7 +5,7 @@ Production-grade starter monorepo for a collaborative platform spanning web, API
 ## Tech Stack
 
 - **Frontend:** Next.js 14, TypeScript, Tailwind CSS
-- **Backend:** FastAPI, Pydantic, Uvicorn
+- **Backend:** FastAPI, SQLAlchemy 2.0 async, Alembic, Redis
 - **Data:** PostgreSQL, Redis
 - **Infra:** Docker Compose
 - **DevEx:** Makefile, pre-commit, Ruff, Prettier
@@ -13,7 +13,7 @@ Production-grade starter monorepo for a collaborative platform spanning web, API
 ## Architecture at a Glance
 
 - `apps/web`: Netflix-like UI foundation and app shell.
-- `apps/api`: FastAPI service with modular routing, typed response models, and structured logging.
+- `apps/api`: versioned FastAPI API (`/api/v1`) with modular endpoints, async DB, migrations, and caching.
 - `ml`: placeholders for training, feature, and inference pipelines.
 - `infra`: compose manifests and deployment-oriented infrastructure assets.
 
@@ -50,23 +50,49 @@ cp apps/web/.env.example apps/web/.env.local
 ### 2) Run the full stack
 
 ```bash
-docker compose up --build
+docker compose -f infra/docker-compose.yml up --build
 ```
+
+> Note: `infra/docker-compose.yml` is the source of truth. Root `docker-compose.yml` is a thin wrapper for convenience.
 
 ### 3) Access services
 
 - Web: http://localhost:3000
 - API docs: http://localhost:8000/docs
-- API health: http://localhost:8000/health
+- API health (liveness): http://localhost:8000/api/v1/health
+- API ready (readiness): http://localhost:8000/api/v1/ready
 
-## Makefile Commands
+## Backend commands
 
 ```bash
-make up       # docker compose up --build
-make down     # stop and remove containers/volumes
-make lint     # ruff + next lint
-make test     # pytest + web test placeholder
-make format   # ruff format + prettier
+make migrate   # alembic upgrade head
+make seed      # load demo user/items
+make test      # API + web tests
+```
+
+## API examples
+
+### Home feed
+
+```bash
+curl "http://localhost:8000/api/v1/home?user_id=<demo_user_uuid>"
+```
+
+### Log an event
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/events" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "<demo_user_uuid>",
+    "item_id": "<item_uuid>",
+    "event_type": "play",
+    "row_id": "trending",
+    "rank_position": 1,
+    "session_id": "sess-1",
+    "variant_id": "A",
+    "watch_time_sec": 120
+  }'
 ```
 
 ## Deployment
@@ -85,14 +111,11 @@ make format   # ruff format + prettier
 2. Set **Root Directory** to `apps/api`.
 3. Runtime: **Docker**.
 4. Exposed port: `8000`.
-5. Health check path: `/health`.
+5. Health check path: `/api/v1/health`.
 6. Set env vars:
-   - `APP_ENV=production`
-   - `APP_LOG_LEVEL=INFO`
-
-### Data services
-
-Use managed Postgres + Redis (Render, Neon, Upstash, Railway, etc.) for production.
+   - `APP_DATABASE_URL=<managed_postgres_asyncpg_url>`
+   - `APP_REDIS_URL=<managed_redis_url>`
+   - `APP_MODEL_VERSION=prod`
 
 ## Roadmap
 
