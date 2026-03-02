@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.models.event import Event
+from app.db.models.user import User
 from app.db.session import get_db, get_redis
 from app.schemas.event import EventCreate, EventCreateResponse
 from app.services.cache import CacheService
@@ -17,6 +19,13 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
     redis_client: Redis | None = Depends(get_redis),
 ) -> EventCreateResponse:
+    user = (
+        await db.execute(select(User).where(User.id == payload.user_id))
+    ).scalars().first()
+
+    if user is None:
+        db.add(User(id=payload.user_id))
+
     event = Event(
         user_id=payload.user_id,
         item_id=payload.item_id,
@@ -28,6 +37,7 @@ async def create_event(
         watch_time_sec=payload.watch_time_sec,
         ts=payload.ts,
     )
+
     db.add(event)
     await db.commit()
 

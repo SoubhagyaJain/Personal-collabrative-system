@@ -1,4 +1,6 @@
 import logging
+from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +14,16 @@ settings = get_settings()
 configure_logging(settings.app_log_level)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title=settings.app_name)
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+    await init_redis()
+    logger.info("api_startup", extra={"environment": settings.app_env})
+    yield
+    await close_redis()
+
+
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 app.include_router(api_router, prefix="/api/v1")
 
@@ -23,14 +34,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    await init_redis()
-    logger.info("api_startup", extra={"environment": settings.app_env})
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    await close_redis()

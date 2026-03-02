@@ -1,7 +1,8 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Select, case, desc, func, or_, select
+from sqlalchemy import Select, and_, case, desc, func, select
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.event import Event
@@ -16,18 +17,24 @@ class HomeService:
 
     async def get_trending_items(self, limit: int = 12) -> list[Item]:
         since = datetime.now(UTC) - timedelta(days=7)
+
+        plays_last_7d = func.count(case((and_(Event.event_type == "play", Event.ts >= since), 1)))
+
         stmt = (
             select(Item)
             .outerjoin(Event, Event.item_id == Item.id)
-            .where(or_(Event.ts.is_(None), Event.ts >= since))
             .group_by(Item.id)
-            .order_by(func.count(case((Event.event_type == "play", 1))).desc(), Item.created_at.desc(), Item.id.asc())
+            .order_by(plays_last_7d.desc(), Item.created_at.desc(), Item.id.asc())
             .limit(limit)
         )
+
         rows = (await self.session.execute(stmt)).scalars().all()
         if rows:
             return list(rows)
-        fallback_stmt: Select[tuple[Item]] = select(Item).order_by(Item.created_at.desc(), Item.id.asc()).limit(limit)
+
+        fallback_stmt: Select[tuple[Item]] = (
+            select(Item).order_by(Item.created_at.desc(), Item.id.asc()).limit(limit)
+        )
         return list((await self.session.execute(fallback_stmt)).scalars().all())
 
     async def get_user_recent_item(self, user_id: uuid.UUID) -> Item | None:
@@ -41,7 +48,11 @@ class HomeService:
         return (await self.session.execute(stmt)).scalars().first()
 
     async def get_seed_item(self) -> Item | None:
-        return (await self.session.execute(select(Item).order_by(Item.created_at.desc(), Item.id.asc()).limit(1))).scalars().first()
+        return (
+            await self.session.execute(
+                select(Item).order_by(Item.created_at.desc(), Item.id.asc()).limit(1)
+            )
+        ).scalars().first()
 
     async def get_similar_by_genres(self, base_item: Item, limit: int = 12) -> list[Item]:
         genres = base_item.genres or []
@@ -50,10 +61,14 @@ class HomeService:
 
         stmt = (
             select(Item)
-            .where(Item.id != base_item.id, Item.genres.overlap(genres))
+            .where(Item.id != base_item.id, Item.genres.overlap(array(genres)))
             .outerjoin(Event, Event.item_id == Item.id)
             .group_by(Item.id)
-            .order_by(func.count(case((Event.event_type == "play", 1))).desc(), Item.created_at.desc(), Item.id.asc())
+            .order_by(
+                func.count(case((Event.event_type == "play", 1))).desc(),
+                Item.created_at.desc(),
+                Item.id.asc(),
+            )
             .limit(limit)
         )
         return list((await self.session.execute(stmt)).scalars().all())
@@ -74,7 +89,7 @@ class HomeService:
 
         stmt = (
             select(Item)
-            .where(Item.genres.overlap(preferred_genres))
+            .where(Item.genres.overlap(array(preferred_genres)))
             .outerjoin(Event, Event.item_id == Item.id)
             .group_by(Item.id)
             .order_by(
@@ -91,7 +106,10 @@ class HomeService:
         recent_item = await self.get_user_recent_item(user_id)
         if recent_item is None:
             recent_item = await self.get_seed_item()
-        because_items = await self.get_similar_by_genres(recent_item, limit=12) if recent_item else []
+
+        because_items = (
+            await self.get_similar_by_genres(recent_item, limit=12) if recent_item else []
+        )
         trending = await self.get_trending_items()
 
         rows = [
