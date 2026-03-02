@@ -19,7 +19,10 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
     redis_client: Redis | None = Depends(get_redis),
 ) -> EventCreateResponse:
-    user = (await db.execute(select(User).where(User.id == payload.user_id))).scalars().first()
+    user = (
+        await db.execute(select(User).where(User.id == payload.user_id))
+    ).scalars().first()
+
     if user is None:
         db.add(User(id=payload.user_id))
 
@@ -34,6 +37,7 @@ async def create_event(
         watch_time_sec=payload.watch_time_sec,
         ts=payload.ts,
     )
+
     db.add(event)
     await db.commit()
 

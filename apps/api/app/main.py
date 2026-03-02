@@ -24,7 +24,9 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
 app.include_router(api_router, prefix="/api/v1")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

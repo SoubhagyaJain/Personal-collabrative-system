@@ -13,7 +13,13 @@ interface ContentRowProps {
   onPlayClick: (item: ItemCard, rankPosition: number, rowId: string) => void;
 }
 
-export function ContentRow({ rowId, title, items, onCardClick, onPlayClick }: ContentRowProps): JSX.Element {
+export function ContentRow({
+  rowId,
+  title,
+  items,
+  onCardClick,
+  onPlayClick,
+}: ContentRowProps): JSX.Element {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   const scrollByAmount = (direction: -1 | 1): void => {
